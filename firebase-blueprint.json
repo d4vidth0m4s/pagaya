@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "RentalObject": {
+      "title": "RentalObject",
+      "description": "Objeto o activo alquilable como moto, herramienta o maquinaria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 50 },
+        "dailyRate": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "description": { "type": "string", "maxLength": 500 },
+        "licensePlateOrSerial": { "type": "string", "maxLength": 50 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "category", "dailyRate", "status", "ownerId"]
+    },
+    "DailyRental": {
+      "title": "DailyRental",
+      "description": "Registro de fecha alquilada por objeto con tarifa fija snapshot y estado de pago",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "objectId": { "type": "string", "maxLength": 128 },
+        "objectName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "day": { "type": "number" },
+        "dailyRateSnapshot": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending_confirmation", "confirmed_unpaid", "confirmed_paid"] },
+        "paidAmount": { "type": "number" },
+        "personName": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "objectId", "objectName", "date", "dailyRateSnapshot", "status", "paidAmount", "ownerId"]
+    },
+    "PaymentReceipt": {
+      "title": "PaymentReceipt",
+      "description": "Recibo de dinero recibido con método de pago, referencia y saldo no aplicado",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "receiptNumber": { "type": "string", "maxLength": 30 },
+        "receivedDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "totalAmount": { "type": "number" },
+        "personName": { "type": "string", "maxLength": 100 },
+        "paymentMethod": { "type": "string", "maxLength": 50 },
+        "reference": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "unallocatedAmount": { "type": "number" },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "receiptNumber", "receivedDate", "totalAmount", "paymentMethod", "ownerId"]
+    },
+    "PaymentAllocation": {
+      "title": "PaymentAllocation",
+      "description": "Detalle de distribución de un pago hacia un día específico de alquiler de un objeto",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "receiptId": { "type": "string", "maxLength": 128 },
+        "receiptNumber": { "type": "string", "maxLength": 30 },
+        "rentalId": { "type": "string", "maxLength": 128 },
+        "objectId": { "type": "string", "maxLength": 128 },
+        "objectName": { "type": "string", "maxLength": 100 },
+        "rentalDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "allocatedAmount": { "type": "number" },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "receiptId", "rentalId", "objectId", "rentalDate", "allocatedAmount", "ownerId"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Configuración del negocio del usuario",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "receiptPrefix": { "type": "string", "maxLength": 10 },
+        "nextReceiptNumber": { "type": "number" },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "businessName", "currency", "ownerId"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Historial de modificaciones, cobros y cambios en el sistema",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 50 },
+        "details": { "type": "string", "maxLength": 500 },
+        "entityType": { "type": "string", "maxLength": 50 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "ownerId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "action", "details", "ownerId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/objects/{objectId}": {
+      "schema": { "$ref": "RentalObject" },
+      "description": "Colección de objetos alquilables pertenecientes a cada usuario"
+    },
+    "/rentals/{rentalId}": {
+      "schema": { "$ref": "DailyRental" },
+      "description": "Colección de fechas de alquiler diario por objeto"
+    },
+    "/receipts/{receiptId}": {
+      "schema": { "$ref": "PaymentReceipt" },
+      "description": "Colección de recibos de pago registrados"
+    },
+    "/allocations/{allocationId}": {
+      "schema": { "$ref": "PaymentAllocation" },
+      "description": "Colección de aplicaciones de pagos a días concretos"
+    },
+    "/settings/{settingsId}": {
+      "schema": { "$ref": "AppSettings" },
+      "description": "Ajustes de configuración del usuario"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "AuditLog" },
+      "description": "Registro de auditoría e historial de cambios"
+    }
+  }
+}

@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidRentalObject(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'dailyRate', 'status', 'ownerId']) &&
+        data.keys().hasOnly(['id', 'name', 'category', 'dailyRate', 'status', 'description', 'licensePlateOrSerial', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.category is string && data.category.size() <= 50 &&
+        data.dailyRate is number && data.dailyRate >= 0 &&
+        (data.status == 'active' || data.status == 'archived') &&
+        data.ownerId == request.auth.uid &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        (!('licensePlateOrSerial' in data) || (data.licensePlateOrSerial is string && data.licensePlateOrSerial.size() <= 50));
+    }
+
+    function isValidDailyRental(data) {
+      return data.keys().hasAll(['id', 'objectId', 'objectName', 'date', 'dailyRateSnapshot', 'status', 'paidAmount', 'ownerId']) &&
+        data.keys().hasOnly(['id', 'objectId', 'objectName', 'date', 'year', 'month', 'day', 'dailyRateSnapshot', 'status', 'paidAmount', 'personName', 'notes', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.objectId is string && data.objectId.size() <= 128 &&
+        data.objectName is string && data.objectName.size() <= 100 &&
+        data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        data.dailyRateSnapshot is number && data.dailyRateSnapshot >= 0 &&
+        (data.status == 'pending_confirmation' || data.status == 'confirmed_unpaid' || data.status == 'confirmed_paid') &&
+        data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= data.dailyRateSnapshot &&
+        data.ownerId == request.auth.uid &&
+        (!('personName' in data) || (data.personName is string && data.personName.size() <= 100)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    function isValidPaymentReceipt(data) {
+      return data.keys().hasAll(['id', 'receiptNumber', 'receivedDate', 'totalAmount', 'paymentMethod', 'ownerId']) &&
+        data.keys().hasOnly(['id', 'receiptNumber', 'receivedDate', 'totalAmount', 'personName', 'paymentMethod', 'reference', 'notes', 'unallocatedAmount', 'ownerId', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.receiptNumber is string && data.receiptNumber.size() <= 30 &&
+        data.receivedDate is string && data.receivedDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        data.totalAmount is number && data.totalAmount >= 0 &&
+        data.paymentMethod is string && data.paymentMethod.size() <= 50 &&
+        data.ownerId == request.auth.uid &&
+        (!('personName' in data) || (data.personName is string && data.personName.size() <= 100)) &&
+        (!('reference' in data) || (data.reference is string && data.reference.size() <= 100)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        (!('unallocatedAmount' in data) || (data.unallocatedAmount is number && data.unallocatedAmount >= 0));
+    }
+
+    function isValidPaymentAllocation(data) {
+      return data.keys().hasAll(['id', 'receiptId', 'rentalId', 'objectId', 'rentalDate', 'allocatedAmount', 'ownerId']) &&
+        data.keys().hasOnly(['id', 'receiptId', 'receiptNumber', 'rentalId', 'objectId', 'objectName', 'rentalDate', 'allocatedAmount', 'ownerId', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.receiptId is string && data.receiptId.size() <= 128 &&
+        data.rentalId is string && data.rentalId.size() <= 128 &&
+        data.objectId is string && data.objectId.size() <= 128 &&
+        data.rentalDate is string && data.rentalDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        data.allocatedAmount is number && data.allocatedAmount > 0 &&
+        data.ownerId == request.auth.uid;
+    }
+
+    function isValidAppSettings(data) {
+      return data.keys().hasAll(['id', 'businessName', 'currency', 'ownerId']) &&
+        data.keys().hasOnly(['id', 'businessName', 'currency', 'phone', 'receiptPrefix', 'nextReceiptNumber', 'ownerId', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.businessName is string && data.businessName.size() <= 100 &&
+        data.currency is string && data.currency.size() <= 10 &&
+        data.ownerId == request.auth.uid &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+        (!('receiptPrefix' in data) || (data.receiptPrefix is string && data.receiptPrefix.size() <= 10)) &&
+        (!('nextReceiptNumber' in data) || (data.nextReceiptNumber is number && data.nextReceiptNumber >= 0));
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['id', 'action', 'details', 'ownerId', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'action', 'details', 'entityType', 'entityId', 'timestamp', 'ownerId']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.action is string && data.action.size() <= 50 &&
+        data.details is string && data.details.size() <= 500 &&
+        data.ownerId == request.auth.uid;
+    }
+
+    // --- Collections ---
+
+    match /objects/{objectId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(objectId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(objectId) && isValidRentalObject(incoming());
+      allow update: if isSignedIn() && isValidId(objectId) && isValidRentalObject(incoming()) && incoming().ownerId == existing().ownerId && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(objectId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /rentals/{rentalId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(rentalId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(rentalId) && isValidDailyRental(incoming());
+      allow update: if isSignedIn() && isValidId(rentalId) && isValidDailyRental(incoming()) && incoming().ownerId == existing().ownerId && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(rentalId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /receipts/{receiptId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(receiptId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(receiptId) && isValidPaymentReceipt(incoming());
+      allow update: if isSignedIn() && isValidId(receiptId) && isValidPaymentReceipt(incoming()) && incoming().ownerId == existing().ownerId && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(receiptId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /allocations/{allocationId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(allocationId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(allocationId) && isValidPaymentAllocation(incoming());
+      allow update: if isSignedIn() && isValidId(allocationId) && isValidPaymentAllocation(incoming()) && incoming().ownerId == existing().ownerId && incoming().id == existing().id;
+      allow delete: if isSignedIn() && isValidId(allocationId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /settings/{settingsId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(settingsId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(settingsId) && isValidAppSettings(incoming());
+      allow update: if isSignedIn() && isValidId(settingsId) && isValidAppSettings(incoming()) && incoming().ownerId == existing().ownerId && incoming().id == existing().id;
+      allow delete: if false; // settings shouldn't be deleted
+    }
+
+    match /audit_logs/{logId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(logId) && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update: if false; // append-only audit trail
+      allow delete: if false;
+    }
+  }
+}

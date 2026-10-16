@@ -1,0 +1,6 @@
+{
+  "name": "AlquilaYa - Gestión de Alquileres y Pagos",
+  "description": "Sistema completo para control de alquileres diarios de objetos, registro de pagos parciales y totales, calendario visual y exportación a Excel en pesos colombianos (COP).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
